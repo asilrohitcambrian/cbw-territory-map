@@ -184,6 +184,33 @@
     }
     .info-banner-title { font-size: 13px; font-weight: 600; color: #5E4DB2; margin-bottom: 6px; }
     .info-banner-body  { font-size: 12px; color: #44546F; line-height: 1.5; }
+
+    /* ── Country switcher ── */
+    .country-switcher {
+      display: flex; gap: 8px; margin-bottom: 20px;
+    }
+    .country-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 16px; border-radius: 6px;
+      border: 1px solid #DFE1E6; cursor: pointer;
+      font-family: inherit; font-size: 13px; font-weight: 500;
+      background: #fff; color: #44546F; transition: all 0.15s;
+    }
+    .country-btn:hover { background: #F0F4FF; border-color: #B3C9FF; color: #0C66E4; }
+    .country-btn.active { background: #172B4D; color: #fff; border-color: #172B4D; }
+
+    /* ── UAE exclusivity banner ── */
+    .uae-banner {
+      background: #E6FCFF; border: 1px solid #00B8D960;
+      border-radius: 8px; padding: 16px; margin-bottom: 0;
+    }
+    .uae-banner-title { font-size: 13px; font-weight: 700; color: #006481; margin-bottom: 6px; }
+    .uae-banner-body  { font-size: 12px; color: #44546F; line-height: 1.5; }
+    .uae-tag {
+      display: inline-block; margin-top: 8px;
+      background: #00B8D9; color: #fff; font-size: 10px; font-weight: 600;
+      padding: 2px 8px; border-radius: 20px; letter-spacing: 0.04em;
+    }
   </style>
 </head>
 <body>
@@ -193,17 +220,22 @@
     <div class="brand-icon"><span class="c">C</span><span class="bw">BW</span></div>
     <span class="brand-name">CambrianBioworks</span>
     <span class="brand-sep">|</span>
-    <span class="brand-sub">India Territory Map</span>
+    <span class="brand-sub" id="topbar-sub">Territory Map</span>
   </div>
 </div>
 
 <div class="page">
   <div class="page-header">
-    <h1 class="page-title">India Territory Map</h1>
+    <h1 class="page-title" id="page-title">India Territory Map</h1>
     <p class="page-sub">Signed reseller contracts by region and business unit</p>
   </div>
 
-  <div class="tabs">
+  <div class="country-switcher">
+    <button class="country-btn active" onclick="setCountry('india')">🇮🇳 India</button>
+    <button class="country-btn"        onclick="setCountry('uae')">🇦🇪 UAE</button>
+  </div>
+
+  <div id="category-tabs" class="tabs">
     <button class="tab active" onclick="setCategory('clinical')">🔬 Clinical Diagnostics</button>
     <button class="tab"        onclick="setCategory('biopharma')">💊 Biopharma</button>
     <button class="tab"        onclick="setCategory('academics')">🎓 Academics</button>
@@ -281,10 +313,19 @@ const CATEGORIES = {
 const NORM = { 'NCT of Delhi':'Delhi','Orissa':'Odisha','Uttaranchal':'Uttarakhand','Pondicherry':'Puducherry' };
 const W = 580, H = 680;
 
-let geoData = null;
+const UAE_DATA = {
+  reseller: 'Easylab LLC',
+  color: '#00B8D9',
+  segments: 'Clinical Diagnostics · Biopharma · Academics',
+  geojsonUrl: 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson',
+};
+
+let geoData    = null;
+let geoDataUAE = null;
+let currentCountry  = 'india';
 let currentCategory = 'clinical';
-let projection = null;
-let pathGen = null;
+let projection = null, pathGen = null;
+let projectionUAE = null, pathGenUAE = null;
 
 function normalizeName(n) { return NORM[n] || n; }
 
@@ -300,9 +341,22 @@ function getStateFill(rawName, hovered) {
   return info ? info.color : '#DFE1E6';
 }
 
+function setCountry(country) {
+  currentCountry = country;
+  document.querySelectorAll('.country-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['india','uae'][i] === country);
+  });
+  document.getElementById('category-tabs').style.display = country === 'uae' ? 'none' : '';
+  document.getElementById('page-title').textContent = country === 'uae' ? 'UAE Territory Map' : 'India Territory Map';
+  document.getElementById('topbar-sub').textContent  = country === 'uae' ? 'UAE Territory Map' : 'India Territory Map';
+  document.getElementById('map-container').innerHTML = '<div class="map-placeholder">Loading map…</div>';
+  renderMap();
+  renderLegend();
+}
+
 function setCategory(key) {
   currentCategory = key;
-  document.querySelectorAll('.tab').forEach((t, i) => {
+  document.querySelectorAll('#category-tabs .tab').forEach((t, i) => {
     t.classList.toggle('active', Object.keys(CATEGORIES)[i] === key);
   });
   renderMap();
@@ -311,10 +365,44 @@ function setCategory(key) {
 
 function renderMap() {
   const container = document.getElementById('map-container');
-  if (!geoData) return;
-
-  // Clear loading placeholder on first render
   const placeholder = container.querySelector('.map-placeholder');
+
+  if (currentCountry === 'uae') {
+    if (!geoDataUAE) return;
+    if (placeholder) placeholder.remove();
+
+    const svg = d3.select(container).selectAll('svg').data([1]).join('svg')
+      .attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .style('display', 'block').style('width', '100%').style('height', 'auto');
+
+    svg.selectAll('path.state')
+      .data(geoDataUAE.features)
+      .join('path')
+      .attr('class', 'state')
+      .attr('d', pathGenUAE)
+      .attr('fill', UAE_DATA.color)
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 1)
+      .style('cursor', 'pointer')
+      .style('transition', 'fill 0.12s')
+      .on('mouseenter', function(event, d) {
+        const name = d.properties.name || d.properties.ADMIN || 'United Arab Emirates';
+        d3.select(this).attr('fill', '#FFE380').attr('stroke-width', 2);
+        showUAETooltip(event, name);
+      })
+      .on('mouseleave', function() {
+        d3.select(this).attr('fill', UAE_DATA.color).attr('stroke-width', 1);
+        hideTooltip();
+      });
+
+    svg.selectAll('g.pin').data([]).join('g');
+    svg.selectAll('g.tooltip-group').data([1]).join('g').attr('class', 'tooltip-group')
+      .style('pointer-events', 'none').style('display', 'none');
+    return;
+  }
+
+  if (!geoData) return;
   if (placeholder) placeholder.remove();
 
   const svg = d3.select(container).selectAll('svg').data([1]).join('svg')
@@ -322,7 +410,6 @@ function renderMap() {
     .attr('preserveAspectRatio', 'xMidYMid meet')
     .style('display', 'block').style('width', '100%').style('height', 'auto');
 
-  // State paths
   svg.selectAll('path.state')
     .data(geoData.features)
     .join('path')
@@ -344,7 +431,6 @@ function renderMap() {
       hideTooltip();
     });
 
-  // Institution pins (academics only)
   const cat = CATEGORIES[currentCategory];
   const pinsData = (currentCategory === 'academics' && cat.institutions) ? cat.institutions : [];
 
@@ -363,7 +449,6 @@ function renderMap() {
   pins.selectAll('circle.inner').data(d => [d]).join('circle').attr('class', 'inner')
     .attr('r', 3).attr('fill', '#fff');
 
-  // Tooltip group
   svg.selectAll('g.tooltip-group').data([1]).join('g').attr('class', 'tooltip-group')
     .style('pointer-events', 'none').style('display', 'none');
 }
@@ -407,12 +492,64 @@ function showTooltip(event, stateName) {
     .attr('font-family', 'Inter,sans-serif').text(d => d);
 }
 
+function showUAETooltip(event, emirateName) {
+  const svg = document.querySelector('#map-container svg');
+  if (!svg) return;
+  const rect = svg.getBoundingClientRect();
+  const mx = event.clientX - rect.left;
+  const my = event.clientY - rect.top;
+  const tx = mx > 380 ? mx - 170 : mx + 14;
+  const ty = my > 500 ? my - 70 : my + 12;
+
+  const tg = d3.select('#map-container svg').select('g.tooltip-group')
+    .style('display', null).attr('transform', `translate(${tx},${ty})`);
+
+  tg.selectAll('rect').data([1]).join('rect')
+    .attr('width', 165).attr('height', 52).attr('rx', 6)
+    .attr('fill', '#172B4D').attr('opacity', 0.93);
+  tg.selectAll('text.st-name').data([1]).join('text').attr('class', 'st-name')
+    .attr('x', 10).attr('y', 18).attr('fill', '#fff')
+    .attr('font-size', 12).attr('font-weight', 600).attr('font-family', 'Inter,sans-serif')
+    .text(emirateName);
+  tg.selectAll('text.st-reseller').data([1]).join('text').attr('class', 'st-reseller')
+    .attr('x', 10).attr('y', 33).attr('fill', '#B6C2CF')
+    .attr('font-size', 11).attr('font-family', 'Inter,sans-serif').text(UAE_DATA.reseller);
+  tg.selectAll('text.inst-line').data([1]).join('text').attr('class', 'inst-line')
+    .attr('x', 10).attr('y', 46).attr('fill', '#79E2F2')
+    .attr('font-size', 10).attr('font-family', 'Inter,sans-serif').text('Exclusive — all segments');
+}
+
 function hideTooltip() {
   d3.select('#map-container svg').select('g.tooltip-group').style('display', 'none');
 }
 
 function renderLegend() {
   const col = document.getElementById('legend-col');
+
+  if (currentCountry === 'uae') {
+    col.innerHTML = `
+      <div class="card">
+        <div class="card-label">Signed Reseller</div>
+        <div class="legend-item">
+          <div class="swatch" style="background:${UAE_DATA.color}"></div>
+          <div>
+            <div class="legend-name">Easylab LLC</div>
+            <div class="legend-region">UAE — full exclusivity</div>
+          </div>
+        </div>
+      </div>
+      <div class="uae-banner">
+        <div class="uae-banner-title">Exclusive National Distributor</div>
+        <div class="uae-banner-body">Easylab LLC holds full exclusivity across all UAE emirates for all business segments.</div>
+        <div>
+          <span class="uae-tag">Clinical Diagnostics</span>
+          <span class="uae-tag" style="margin-left:4px">Biopharma</span>
+          <span class="uae-tag" style="margin-left:4px">Academics</span>
+        </div>
+      </div>`;
+    return;
+  }
+
   const cat = CATEGORIES[currentCategory];
 
   let html = `<div class="card">
@@ -455,20 +592,31 @@ function renderLegend() {
   col.innerHTML = html;
 }
 
-// Boot: load GeoJSON then render
-fetch('https://raw.githubusercontent.com/geohacker/india/master/state/india_state.geojson')
-  .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-  .then(data => {
-    geoData = data;
-    projection = d3.geoMercator().fitSize([W, H], geoData);
-    pathGen = d3.geoPath().projection(projection);
-    renderMap();
-    renderLegend();
-  })
-  .catch(() => {
-    document.getElementById('map-container').innerHTML =
-      '<div class="map-placeholder error">Failed to load map — check internet connection.</div>';
-  });
+// Boot: load both GeoJSONs in parallel
+Promise.all([
+  fetch('https://raw.githubusercontent.com/geohacker/india/master/state/india_state.geojson').then(r => r.json()),
+  fetch(UAE_DATA.geojsonUrl).then(r => r.json()).then(d => ({
+    type: 'FeatureCollection',
+    features: d.features.filter(f => f.properties['ISO3166-1-Alpha-3'] === 'ARE'),
+  })),
+]).then(([india, uae]) => {
+  geoData = india;
+  projection = d3.geoMercator().fitSize([W, H], geoData);
+  pathGen = d3.geoPath().projection(projection);
+
+  geoDataUAE = uae;
+  projectionUAE = d3.geoMercator()
+    .center([54.0, 24.1])
+    .scale(4200)
+    .translate([W / 2, H / 2 - 60]);
+  pathGenUAE = d3.geoPath().projection(projectionUAE);
+
+  renderMap();
+  renderLegend();
+}).catch(() => {
+  document.getElementById('map-container').innerHTML =
+    '<div class="map-placeholder error">Failed to load map — check internet connection.</div>';
+});
 </script>
 </body>
 </html>
