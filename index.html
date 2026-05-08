@@ -233,6 +233,7 @@
   <div class="country-switcher">
     <button class="country-btn active" onclick="setCountry('india')">🇮🇳 India</button>
     <button class="country-btn"        onclick="setCountry('uae')">🇦🇪 UAE</button>
+    <button class="country-btn"        onclick="setCountry('oman')">🇴🇲 Oman</button>
   </div>
 
   <div id="category-tabs" class="tabs">
@@ -316,16 +317,26 @@ const W = 580, H = 680;
 const UAE_DATA = {
   reseller: 'Easylab LLC',
   color: '#00B8D9',
-  segments: 'Clinical Diagnostics · Biopharma · Academics',
   geojsonUrl: 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson',
+  isoCode: 'ARE',
+  projection: { center: [54.0, 24.1], scale: 4200, translateY: -60 },
+};
+const OMAN_DATA = {
+  reseller: 'Bigoman LLC',
+  color: '#36B37E',
+  geojsonUrl: 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson',
+  isoCode: 'OMN',
+  projection: { center: [57.5, 22.0], scale: 2600, translateY: -80 },
 };
 
 let geoData    = null;
-let geoDataUAE = null;
+let geoDataUAE  = null;
+let geoDataOMAN = null;
 let currentCountry  = 'india';
 let currentCategory = 'clinical';
 let projection = null, pathGen = null;
 let projectionUAE = null, pathGenUAE = null;
+let projectionOMAN = null, pathGenOMAN = null;
 
 function normalizeName(n) { return NORM[n] || n; }
 
@@ -344,11 +355,12 @@ function getStateFill(rawName, hovered) {
 function setCountry(country) {
   currentCountry = country;
   document.querySelectorAll('.country-btn').forEach((b, i) => {
-    b.classList.toggle('active', ['india','uae'][i] === country);
+    b.classList.toggle('active', ['india','uae','oman'][i] === country);
   });
-  document.getElementById('category-tabs').style.display = country === 'uae' ? 'none' : '';
-  document.getElementById('page-title').textContent = country === 'uae' ? 'UAE Territory Map' : 'India Territory Map';
-  document.getElementById('topbar-sub').textContent  = country === 'uae' ? 'UAE Territory Map' : 'India Territory Map';
+  const titles = { india: 'India Territory Map', uae: 'UAE Territory Map', oman: 'Oman Territory Map' };
+  document.getElementById('category-tabs').style.display = country === 'india' ? '' : 'none';
+  document.getElementById('page-title').textContent = titles[country];
+  document.getElementById('topbar-sub').textContent  = titles[country];
   document.getElementById('map-container').innerHTML = '<div class="map-placeholder">Loading map…</div>';
   renderMap();
   renderLegend();
@@ -367,8 +379,12 @@ function renderMap() {
   const container = document.getElementById('map-container');
   const placeholder = container.querySelector('.map-placeholder');
 
-  if (currentCountry === 'uae') {
-    if (!geoDataUAE) return;
+  if (currentCountry === 'uae' || currentCountry === 'oman') {
+    const countryData = currentCountry === 'uae' ? UAE_DATA : OMAN_DATA;
+    const countryGeo  = currentCountry === 'uae' ? geoDataUAE : geoDataOMAN;
+    const countryPath = currentCountry === 'uae' ? pathGenUAE : pathGenOMAN;
+    const countryName = currentCountry === 'uae' ? 'United Arab Emirates' : 'Oman';
+    if (!countryGeo) return;
     if (placeholder) placeholder.remove();
 
     const svg = d3.select(container).selectAll('svg').data([1]).join('svg')
@@ -377,22 +393,21 @@ function renderMap() {
       .style('display', 'block').style('width', '100%').style('height', 'auto');
 
     svg.selectAll('path.state')
-      .data(geoDataUAE.features)
+      .data(countryGeo.features)
       .join('path')
       .attr('class', 'state')
-      .attr('d', pathGenUAE)
-      .attr('fill', UAE_DATA.color)
+      .attr('d', countryPath)
+      .attr('fill', countryData.color)
       .attr('stroke', '#fff')
       .attr('stroke-width', 1)
       .style('cursor', 'pointer')
       .style('transition', 'fill 0.12s')
-      .on('mouseenter', function(event, d) {
-        const name = d.properties.name || d.properties.ADMIN || 'United Arab Emirates';
+      .on('mouseenter', function(event) {
         d3.select(this).attr('fill', '#FFE380').attr('stroke-width', 2);
-        showUAETooltip(event, name);
+        showUAETooltip(event, countryName, countryData);
       })
       .on('mouseleave', function() {
-        d3.select(this).attr('fill', UAE_DATA.color).attr('stroke-width', 1);
+        d3.select(this).attr('fill', countryData.color).attr('stroke-width', 1);
         hideTooltip();
       });
 
@@ -492,7 +507,8 @@ function showTooltip(event, stateName) {
     .attr('font-family', 'Inter,sans-serif').text(d => d);
 }
 
-function showUAETooltip(event, emirateName) {
+function showUAETooltip(event, emirateName, data) {
+  data = data || UAE_DATA;
   const svg = document.querySelector('#map-container svg');
   if (!svg) return;
   const rect = svg.getBoundingClientRect();
@@ -526,25 +542,27 @@ function hideTooltip() {
 function renderLegend() {
   const col = document.getElementById('legend-col');
 
-  if (currentCountry === 'uae') {
+  if (currentCountry === 'uae' || currentCountry === 'oman') {
+    const d = currentCountry === 'uae' ? UAE_DATA : OMAN_DATA;
+    const countryLabel = currentCountry === 'uae' ? 'UAE' : 'Oman';
     col.innerHTML = `
       <div class="card">
         <div class="card-label">Signed Reseller</div>
         <div class="legend-item">
-          <div class="swatch" style="background:${UAE_DATA.color}"></div>
+          <div class="swatch" style="background:${d.color}"></div>
           <div>
-            <div class="legend-name">Easylab LLC</div>
-            <div class="legend-region">UAE — full exclusivity</div>
+            <div class="legend-name">${d.reseller}</div>
+            <div class="legend-region">${countryLabel} — full exclusivity</div>
           </div>
         </div>
       </div>
       <div class="uae-banner">
         <div class="uae-banner-title">Exclusive National Distributor</div>
-        <div class="uae-banner-body">Easylab LLC holds full exclusivity across all UAE emirates for all business segments.</div>
+        <div class="uae-banner-body">${d.reseller} holds full exclusivity across ${countryLabel} for all business segments.</div>
         <div>
-          <span class="uae-tag">Clinical Diagnostics</span>
-          <span class="uae-tag" style="margin-left:4px">Biopharma</span>
-          <span class="uae-tag" style="margin-left:4px">Academics</span>
+          <span class="uae-tag" style="background:${d.color}">Clinical Diagnostics</span>
+          <span class="uae-tag" style="margin-left:4px;background:${d.color}">Biopharma</span>
+          <span class="uae-tag" style="margin-left:4px;background:${d.color}">Academics</span>
         </div>
       </div>`;
     return;
@@ -593,23 +611,32 @@ function renderLegend() {
 }
 
 // Boot: load both GeoJSONs in parallel
+const GEO_COUNTRIES_URL = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
+
+function makeCountryGeo(allFeatures, isoCode) {
+  return { type: 'FeatureCollection', features: allFeatures.filter(f => f.properties['ISO3166-1-Alpha-3'] === isoCode) };
+}
+function makeCountryProjection(data, cfg) {
+  return d3.geoMercator().center(cfg.center).scale(cfg.scale).translate([W / 2, H / 2 + (cfg.translateY || 0)]);
+}
+
 Promise.all([
   fetch('https://raw.githubusercontent.com/geohacker/india/master/state/india_state.geojson').then(r => r.json()),
-  fetch(UAE_DATA.geojsonUrl).then(r => r.json()).then(d => ({
-    type: 'FeatureCollection',
-    features: d.features.filter(f => f.properties['ISO3166-1-Alpha-3'] === 'ARE'),
-  })),
-]).then(([india, uae]) => {
+  fetch(GEO_COUNTRIES_URL).then(r => r.json()),
+]).then(([india, allCountries]) => {
   geoData = india;
   projection = d3.geoMercator().fitSize([W, H], geoData);
   pathGen = d3.geoPath().projection(projection);
 
-  geoDataUAE = uae;
-  projectionUAE = d3.geoMercator()
-    .center([54.0, 24.1])
-    .scale(4200)
-    .translate([W / 2, H / 2 - 60]);
+  const allFeatures = allCountries.features;
+
+  geoDataUAE = makeCountryGeo(allFeatures, 'ARE');
+  projectionUAE = makeCountryProjection(geoDataUAE, UAE_DATA.projection);
   pathGenUAE = d3.geoPath().projection(projectionUAE);
+
+  geoDataOMAN = makeCountryGeo(allFeatures, 'OMN');
+  projectionOMAN = makeCountryProjection(geoDataOMAN, OMAN_DATA.projection);
+  pathGenOMAN = d3.geoPath().projection(projectionOMAN);
 
   renderMap();
   renderLegend();
