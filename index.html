@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>India Territory Map — CambrianBioworks</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #F7F8F9;
+      color: #172B4D;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: #1D2125;
+      padding: 0 32px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-icon {
+      width: 32px; height: 32px;
+      background: #fff;
+      border-radius: 6px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      line-height: 1;
+    }
+    .brand-icon .c  { font-size: 14px; font-weight: 900; color: #000; }
+    .brand-icon .bw { font-size: 10px; font-weight: 900; color: #000; }
+    .brand-name { font-size: 14px; font-weight: 600; color: #fff; }
+    .brand-sep  { color: #4B5568; font-size: 18px; margin: 0 4px; }
+    .brand-sub  { font-size: 13px; color: #9FADBC; }
+
+    /* ── Page shell ── */
+    .page { max-width: 1200px; margin: 0 auto; padding: 32px 24px 48px; }
+
+    .page-header { margin-bottom: 28px; }
+    .page-title  { font-size: 24px; font-weight: 700; color: #172B4D; }
+    .page-sub    { font-size: 14px; color: #44546F; margin-top: 4px; }
+
+    /* ── Category tabs ── */
+    .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .tab {
+      padding: 8px 20px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      background: #fff;
+      color: #44546F;
+      border: 1px solid #DFE1E6;
+      transition: all 0.15s;
+    }
+    .tab:hover { background: #F0F4FF; border-color: #B3C9FF; color: #0C66E4; }
+    .tab.active {
+      background: #0C66E4;
+      color: #fff;
+      border-color: #0C66E4;
+      box-shadow: 0 1px 4px #0C66E440;
+    }
+
+    /* ── Main layout ── */
+    .layout { display: flex; gap: 24px; align-items: flex-start; }
+
+    /* ── Map card ── */
+    .map-card {
+      flex: 0 0 auto;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #DFE1E6;
+      padding: 20px;
+      box-shadow: 0 1px 3px #091E421A;
+    }
+    .map-card svg { display: block; }
+
+    .map-placeholder {
+      width: 580px; height: 680px;
+      display: flex; align-items: center; justify-content: center;
+      color: #626F86; font-size: 13px;
+    }
+    .map-placeholder.error { color: #AE2A19; }
+
+    /* ── Legend panel ── */
+    .legend-col { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 16px; }
+
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #DFE1E6;
+      padding: 20px;
+      box-shadow: 0 1px 3px #091E421A;
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #626F86;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 16px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .legend-item:last-child { margin-bottom: 0; }
+
+    .swatch {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .swatch.potential {
+      border: 2px dashed #6554C0;
+    }
+
+    .legend-name {
+      font-size: 13px; font-weight: 600; color: #172B4D;
+    }
+    .potential-tag {
+      font-size: 10px; color: #6554C0; font-weight: 400; margin-left: 6px;
+    }
+    .legend-region {
+      font-size: 11px; color: #626F86; margin-top: 2px; line-height: 1.4;
+    }
+
+    .divider-item {
+      display: flex; align-items: center; gap: 10px;
+      padding-top: 12px;
+      border-top: 1px solid #F1F2F4;
+      margin-top: 4px;
+    }
+
+    /* ── Institution pins list ── */
+    .pin-item {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 12px;
+    }
+    .pin-item:last-child { margin-bottom: 0; }
+    .pin-dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pin-name  { font-size: 12px; font-weight: 600; color: #172B4D; }
+    .pin-owner { font-size: 11px; color: #626F86; }
+
+    /* ── Info banner ── */
+    .info-banner {
+      background: #F3F0FF;
+      border-radius: 8px;
+      border: 1px solid #9F8FEF60;
+      padding: 16px;
+    }
+    .info-banner-title { font-size: 13px; font-weight: 600; color: #5E4DB2; margin-bottom: 6px; }
+    .info-banner-body  { font-size: 12px; color: #44546F; line-height: 1.5; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-icon"><span class="c">C</span><span class="bw">BW</span></div>
+    <span class="brand-name">CambrianBioworks</span>
+    <span class="brand-sep">|</span>
+    <span class="brand-sub">India Territory Map</span>
+  </div>
+</div>
+
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title">India Territory Map</h1>
+    <p class="page-sub">Signed reseller contracts by region and business unit</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="setCategory('clinical')">🔬 Clinical Diagnostics</button>
+    <button class="tab"        onclick="setCategory('biopharma')">💊 Biopharma</button>
+    <button class="tab"        onclick="setCategory('academics')">🎓 Academics</button>
+  </div>
+
+  <div class="layout">
+    <div class="map-card">
+      <div id="map-container"><div class="map-placeholder">Loading map…</div></div>
+    </div>
+
+    <div class="legend-col" id="legend-col">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+</div>
+
+<script>
+const CATEGORIES = {
+  clinical: {
+    label: 'Clinical Diagnostics',
+    stateMap: {
+      'Tamil Nadu':     { reseller: 'ASA Diagnostics',    color: '#0747A6' },
+      'Karnataka':      { reseller: 'Insuco',             color: '#0C66E4' },
+      'Telangana':      { reseller: 'Praxabiosolutions',  color: '#388BFF' },
+      'Andhra Pradesh': { reseller: 'Praxabiosolutions',  color: '#388BFF' },
+      'Maharashtra':       { reseller: 'Blot Solutions',     color: '#1F845A' },
+      'Madhya Pradesh':   { reseller: 'Kasliwal Biotech',   color: '#FF8B00' },
+    },
+    legend: [
+      { name: 'ASA Diagnostics',   color: '#0747A6', region: 'Tamil Nadu' },
+      { name: 'Insuco',            color: '#0C66E4', region: 'Karnataka' },
+      { name: 'Praxabiosolutions', color: '#388BFF', region: 'Telangana, Andhra Pradesh' },
+      { name: 'Blot Solutions',    color: '#1F845A', region: 'Maharashtra (Mumbai)' },
+      { name: 'Kasliwal Biotech',  color: '#FF8B00', region: 'Madhya Pradesh' },
+    ],
+  },
+  biopharma: {
+    label: 'Biopharma',
+    allIndia: { reseller: 'Zelle Biotech', color: '#6554C0' },
+    stateMap: {},
+    legend: [
+      { name: 'Zelle Biotech', color: '#6554C0', region: 'Pan-India (all states & territories)' },
+    ],
+  },
+  academics: {
+    label: 'Academics',
+    stateMap: {
+      'Maharashtra':  { reseller: 'DBS + Blot Solutions', color: '#E2B203', institutions: 'DBS → TMH Parel, Mumbai\nBlot Solutions → Actrec' },
+      'Delhi':        { reseller: 'DBS', color: '#E2B203', institutions: 'DBS → AIIMS, New Delhi' },
+      'NCT of Delhi': { reseller: 'DBS', color: '#E2B203', institutions: 'DBS → AIIMS, New Delhi' },
+      'Punjab':       { reseller: 'DBS', color: '#E2B203', institutions: 'DBS → Homi Bhaba National Institute, Mullanpur' },
+      'Gujarat':      { reseller: 'Zelle Biotech', color: '#C0B6F2', potential: true, institutions: 'Zelle Biotech (Potential)' },
+      'Karnataka':      { reseller: 'Insuco',            color: '#0C66E4', institutions: 'Insuco' },
+      'Tamil Nadu':     { reseller: 'ASA Diagnostics',   color: '#0747A6', institutions: 'ASA Diagnostics' },
+      'Andhra Pradesh': { reseller: 'Praxabiosolutions',  color: '#388BFF', institutions: 'Praxabiosolutions' },
+    },
+    legend: [
+      { name: 'DBS',            color: '#E2B203', region: 'TMH Parel · AIIMS Delhi · Homi Bhaba Institute' },
+      { name: 'Blot Solutions', color: '#1F845A', region: 'Actrec, Mumbai' },
+      { name: 'Insuco',           color: '#0C66E4', region: 'Karnataka' },
+      { name: 'ASA Diagnostics', color: '#0747A6', region: 'Tamil Nadu' },
+      { name: 'Praxabiosolutions',color: '#388BFF', region: 'Andhra Pradesh' },
+      { name: 'Zelle Biotech',  color: '#C0B6F2', region: 'Gujarat + Maharashtra (Potential)', potential: true },
+    ],
+    institutions: [
+      { name: 'TMH Parel, Mumbai',          reseller: 'DBS',            lat: 18.990, lng: 72.843 },
+      { name: 'AIIMS, New Delhi',           reseller: 'DBS',            lat: 28.568, lng: 77.210 },
+      { name: 'Homi Bhaba Inst, Mullanpur', reseller: 'DBS',            lat: 30.898, lng: 76.726 },
+      { name: 'Actrec, Mumbai',             reseller: 'Blot Solutions', lat: 19.074, lng: 73.066 },
+    ],
+  },
+};
+
+const NORM = { 'NCT of Delhi':'Delhi','Orissa':'Odisha','Uttaranchal':'Uttarakhand','Pondicherry':'Puducherry' };
+const W = 580, H = 680;
+
+let geoData = null;
+let currentCategory = 'clinical';
+let projection = null;
+let pathGen = null;
+
+function normalizeName(n) { return NORM[n] || n; }
+
+function getStateInfo(rawName) {
+  const cat = CATEGORIES[currentCategory];
+  if (currentCategory === 'biopharma') return cat.allIndia;
+  return cat.stateMap[rawName] || cat.stateMap[normalizeName(rawName)] || null;
+}
+
+function getStateFill(rawName, hovered) {
+  if (hovered) return '#FFE380';
+  const info = getStateInfo(rawName);
+  return info ? info.color : '#DFE1E6';
+}
+
+function setCategory(key) {
+  currentCategory = key;
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', Object.keys(CATEGORIES)[i] === key);
+  });
+  renderMap();
+  renderLegend();
+}
+
+function renderMap() {
+  const container = document.getElementById('map-container');
+  if (!geoData) return;
+
+  // Clear loading placeholder on first render
+  const placeholder = container.querySelector('.map-placeholder');
+  if (placeholder) placeholder.remove();
+
+  const svg = d3.select(container).selectAll('svg').data([1]).join('svg')
+    .attr('width', W).attr('height', H)
+    .style('display', 'block').style('overflow', 'visible');
+
+  // State paths
+  svg.selectAll('path.state')
+    .data(geoData.features)
+    .join('path')
+    .attr('class', 'state')
+    .attr('d', pathGen)
+    .attr('fill', d => getStateFill(d.properties.ST_NM || d.properties.NAME_1 || '', false))
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 0.8)
+    .style('cursor', 'pointer')
+    .style('transition', 'fill 0.12s')
+    .on('mouseenter', function(event, d) {
+      const name = d.properties.ST_NM || d.properties.NAME_1 || '';
+      d3.select(this).attr('fill', '#FFE380').attr('stroke-width', 1.5);
+      showTooltip(event, name);
+    })
+    .on('mouseleave', function(event, d) {
+      const name = d.properties.ST_NM || d.properties.NAME_1 || '';
+      d3.select(this).attr('fill', getStateFill(name, false)).attr('stroke-width', 0.8);
+      hideTooltip();
+    });
+
+  // Institution pins (academics only)
+  const cat = CATEGORIES[currentCategory];
+  const pinsData = (currentCategory === 'academics' && cat.institutions) ? cat.institutions : [];
+
+  const pins = svg.selectAll('g.pin').data(pinsData).join('g').attr('class', 'pin')
+    .attr('transform', d => {
+      const [x, y] = projection([d.lng, d.lat]);
+      return `translate(${x},${y})`;
+    })
+    .style('pointer-events', 'none');
+
+  pins.selectAll('circle.outer').data(d => [d]).join('circle').attr('class', 'outer')
+    .attr('r', 8)
+    .attr('fill', d => d.reseller === 'DBS' ? '#E2B203' : '#1F845A')
+    .attr('stroke', '#fff').attr('stroke-width', 2);
+
+  pins.selectAll('circle.inner').data(d => [d]).join('circle').attr('class', 'inner')
+    .attr('r', 3).attr('fill', '#fff');
+
+  // Tooltip group
+  svg.selectAll('g.tooltip-group').data([1]).join('g').attr('class', 'tooltip-group')
+    .style('pointer-events', 'none').style('display', 'none');
+}
+
+let tooltipG;
+function showTooltip(event, stateName) {
+  const info = getStateInfo(stateName);
+  if (!info) return;
+
+  const svg = document.querySelector('#map-container svg');
+  if (!svg) return;
+  const rect = svg.getBoundingClientRect();
+  const mx = event.clientX - rect.left;
+  const my = event.clientY - rect.top;
+
+  const lines = info.institutions ? info.institutions.split('\n') : [];
+  const bh = 48 + lines.length * 14;
+  const tx = mx > 380 ? mx - 170 : mx + 14;
+  const ty = my > 560 ? my - bh - 10 : my + 12;
+
+  const tg = d3.select('#map-container svg').select('g.tooltip-group')
+    .style('display', null)
+    .attr('transform', `translate(${tx},${ty})`);
+
+  tg.selectAll('rect').data([1]).join('rect')
+    .attr('width', 165).attr('height', bh).attr('rx', 6)
+    .attr('fill', '#172B4D').attr('opacity', 0.93);
+
+  tg.selectAll('text.st-name').data([1]).join('text').attr('class', 'st-name')
+    .attr('x', 10).attr('y', 18).attr('fill', '#fff')
+    .attr('font-size', 12).attr('font-weight', 600)
+    .attr('font-family', 'Inter,sans-serif').text(stateName);
+
+  tg.selectAll('text.st-reseller').data([1]).join('text').attr('class', 'st-reseller')
+    .attr('x', 10).attr('y', 33).attr('fill', '#B6C2CF')
+    .attr('font-size', 11).attr('font-family', 'Inter,sans-serif').text(info.reseller);
+
+  tg.selectAll('text.inst-line').data(lines).join('text').attr('class', 'inst-line')
+    .attr('x', 10).attr('y', (_, i) => 48 + i * 14)
+    .attr('fill', '#8BABF1').attr('font-size', 10)
+    .attr('font-family', 'Inter,sans-serif').text(d => d);
+}
+
+function hideTooltip() {
+  d3.select('#map-container svg').select('g.tooltip-group').style('display', 'none');
+}
+
+function renderLegend() {
+  const col = document.getElementById('legend-col');
+  const cat = CATEGORIES[currentCategory];
+
+  let html = `<div class="card">
+    <div class="card-label">Signed Resellers</div>
+    ${cat.legend.map(l => `
+      <div class="legend-item">
+        <div class="swatch${l.potential ? ' potential' : ''}" style="background:${l.color}"></div>
+        <div>
+          <div class="legend-name">${l.name}${l.potential ? '<span class="potential-tag">potential</span>' : ''}</div>
+          <div class="legend-region">${l.region}</div>
+        </div>
+      </div>`).join('')}
+    <div class="divider-item">
+      <div class="swatch" style="background:#DFE1E6"></div>
+      <div class="legend-region">No signed contract</div>
+    </div>
+  </div>`;
+
+  if (currentCategory === 'academics' && cat.institutions) {
+    html += `<div class="card">
+      <div class="card-label">Institution Pins</div>
+      ${cat.institutions.map(inst => `
+        <div class="pin-item">
+          <div class="pin-dot" style="background:${inst.reseller === 'DBS' ? '#E2B203' : '#1F845A'}"></div>
+          <div>
+            <div class="pin-name">${inst.name}</div>
+            <div class="pin-owner">${inst.reseller}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  if (currentCategory === 'biopharma') {
+    html += `<div class="info-banner">
+      <div class="info-banner-title">Pan-India Coverage</div>
+      <div class="info-banner-body">Zelle Biotech holds the national distribution contract for Biopharma across all Indian states and territories.</div>
+    </div>`;
+  }
+
+  col.innerHTML = html;
+}
+
+// Boot: load GeoJSON then render
+fetch('https://raw.githubusercontent.com/geohacker/india/master/state/india_state.geojson')
+  .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+  .then(data => {
+    geoData = data;
+    projection = d3.geoMercator().fitSize([W, H], geoData);
+    pathGen = d3.geoPath().projection(projection);
+    renderMap();
+    renderLegend();
+  })
+  .catch(() => {
+    document.getElementById('map-container').innerHTML =
+      '<div class="map-placeholder error">Failed to load map — check internet connection.</div>';
+  });
+</script>
+</body>
+</html>
