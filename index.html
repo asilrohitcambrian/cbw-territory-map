@@ -52,19 +52,20 @@
     .page-sub    { font-size: 14px; color: #44546F; margin-top: 4px; }
 
     /* ── Category tabs ── */
-    .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
     .tab {
       padding: 8px 20px;
       border-radius: 6px;
-      border: none;
+      border: 1px solid #DFE1E6;
       cursor: pointer;
       font-family: inherit;
       font-size: 13px;
       font-weight: 500;
       background: #fff;
       color: #44546F;
-      border: 1px solid #DFE1E6;
       transition: all 0.15s;
+      flex: 1 1 auto;
+      text-align: center;
     }
     .tab:hover { background: #F0F4FF; border-color: #B3C9FF; color: #0C66E4; }
     .tab.active {
@@ -79,24 +80,35 @@
 
     /* ── Map card ── */
     .map-card {
-      flex: 0 0 auto;
+      flex: 1 1 0;
+      min-width: 0;
       background: #fff;
       border-radius: 8px;
       border: 1px solid #DFE1E6;
       padding: 20px;
       box-shadow: 0 1px 3px #091E421A;
     }
-    .map-card svg { display: block; }
+    .map-card svg { display: block; width: 100%; height: auto; }
 
     .map-placeholder {
-      width: 580px; height: 680px;
+      width: 100%; aspect-ratio: 580/680;
       display: flex; align-items: center; justify-content: center;
       color: #626F86; font-size: 13px;
     }
     .map-placeholder.error { color: #AE2A19; }
 
     /* ── Legend panel ── */
-    .legend-col { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 16px; }
+    .legend-col { flex: 0 0 240px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      .topbar { padding: 0 16px; }
+      .brand-sep, .brand-sub { display: none; }
+      .page { padding: 20px 16px 40px; }
+      .page-title { font-size: 20px; }
+      .layout { flex-direction: column; }
+      .legend-col { flex: none; width: 100%; }
+    }
 
     .card {
       background: #fff;
@@ -305,8 +317,9 @@ function renderMap() {
   if (placeholder) placeholder.remove();
 
   const svg = d3.select(container).selectAll('svg').data([1]).join('svg')
-    .attr('width', W).attr('height', H)
-    .style('display', 'block').style('overflow', 'visible');
+    .attr('viewBox', `0 0 ${W} ${H}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet')
+    .style('display', 'block').style('width', '100%').style('height', 'auto');
 
   // State paths
   svg.selectAll('path.state')
